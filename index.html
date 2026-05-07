@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sentinel Node | Fault-Tolerant Audit</title>
+    <title>Sentinel Node | Verbose Diagnostics</title>
     <style>
         :root {
             --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #c9d1d9;
@@ -15,12 +15,12 @@
         .config-panel { border-color: var(--blue); background-color: #0d1117; margin-bottom: 25px; }
         h2 { margin-top: 0; font-size: 1rem; color: var(--blue); text-transform: uppercase; }
         p { font-size: 0.8rem; margin: 5px 0 12px 0; color: var(--gray); }
-        .status { font-family: monospace; font-weight: bold; padding: 4px 10px; border-radius: 4px; display: inline-block; font-size: 0.85rem; }
+        .status { font-family: monospace; font-weight: bold; padding: 4px 10px; border-radius: 4px; display: inline-block; font-size: 0.85rem; text-transform: uppercase; }
         .loading { background-color: var(--yellow); color: #000; }
         .pass { background-color: var(--green); color: #fff; }
         .fail { background-color: var(--red); color: #fff; }
         .offline { background-color: #30363d; color: var(--text); }
-        .data-readout { background-color: #010409; padding: 12px; border-radius: 6px; color: #a5d6ff; margin-top: 12px; font-size: 0.8rem; font-family: monospace; border: 1px solid #222; white-space: pre-wrap; }
+        .data-readout { background-color: #010409; padding: 12px; border-radius: 6px; color: #a5d6ff; margin-top: 12px; font-size: 0.8rem; font-family: 'Courier New', Courier, monospace; border: 1px solid #222; white-space: pre-wrap; line-height: 1.6; }
         .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
         label { cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; font-weight: 500; }
         input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--blue); }
@@ -31,7 +31,7 @@
 </head>
 <body>
 
-    <h1>Sentinel Diagnostics <span style="font-size: 0.6rem; opacity: 0.5;">v1.6</span></h1>
+    <h1>Sentinel Diagnostics <span style="font-size: 0.6rem; opacity: 0.5;">v1.7</span></h1>
 
     <div class="module config-panel">
         <h2>Target Pipeline Rules</h2>
@@ -39,7 +39,7 @@
             <label><input type="checkbox" id="expect-dnssec" checked onchange="refreshView()"> DNSSEC (Unbound)</label>
             <label><input type="checkbox" id="expect-sinkhole" checked onchange="refreshView()"> Sinkhole (AdGuard)</label>
             <label><input type="checkbox" id="expect-crypt" checked onchange="refreshView()"> Encryption (DNSCrypt)</label>
-            <label><input type="checkbox" id="strict-mode"> Strict Validation</label>
+            <label><input type="checkbox" id="strict-mode" checked> Strict Validation</label>
         </div>
     </div>
 
@@ -68,11 +68,11 @@
     </div>
 
     <div class="btn-container">
-        <button onclick="runAllTests()">RUN MULTI-POINT AUDIT</button>
+        <button onclick="runAllTests()">RUN VERBOSE AUDIT</button>
     </div>
 
     <script>
-        const networkMap = { "45873": "Reliance Jio", "131259": "Kerala Vision", "133201": "Asianet", "13335": "Cloudflare", "19281": "Quad9", "15169": "Google", "34939": "NextDNS", "134149": "AdGuard DNS" };
+        const networkMap = { "45873": "Reliance Jio", "131259": "Kerala Vision", "133201": "Asianet", "13335": "Cloudflare", "19281": "Quad9", "15169": "Google", "34939": "NextDNS", "134149": "AdGuard DNS", "36692": "OpenDNS" };
 
         function refreshView() {
             ['dnssec', 'sinkhole', 'crypt'].forEach(id => {
@@ -104,64 +104,87 @@
                 return;
             }
 
-            // 1. DNSSEC
+            // 1. VERBOSE DNSSEC
             if (document.getElementById('expect-dnssec').checked) {
-                setUI('dnssec', 'PROBING...', 'loading', "Checking redundant endpoints...");
+                setUI('dnssec', 'PROBING...', 'loading', "Querying signature servers...");
                 const domains = ['dnssec-failed.org', 'dns-servfail.net', 'badisig.go6lab.si'];
-                const results = await Promise.all(domains.map(d => new Promise(res => {
-                    const img = new Image();
-                    img.onload = () => res(false); img.onerror = () => res(true);
-                    img.src = `http://${d}/favicon.ico?${Date.now()}`;
-                    setTimeout(() => res(true), 4000);
-                })));
+                let log = "Target Signature Analysis:\n--------------------------\n";
+                
+                const results = await Promise.all(domains.map(async (d) => {
+                    const blocked = await new Promise(res => {
+                        const img = new Image();
+                        img.onload = () => res(false); 
+                        img.onerror = () => res(true);
+                        img.src = `http://${d}/favicon.ico?${Date.now()}`;
+                        setTimeout(() => res(true), 4000);
+                    });
+                    log += `[${blocked ? 'SECURE' : 'LEAK  '}] ${d}\n`;
+                    return blocked;
+                }));
+                
                 const passed = document.getElementById('strict-mode').checked ? results.every(r => r) : results.some(r => r);
-                setUI('dnssec', passed ? 'PASS' : 'FAIL', passed ? 'pass' : 'fail', `Validation: ${results.filter(r=>r).length}/${domains.length} targets blocked.`);
+                setUI('dnssec', passed ? 'PASS' : 'FAIL', passed ? 'pass' : 'fail', log);
             }
 
-            // 2. SINKHOLE
+            // 2. VERBOSE SINKHOLE
             if (document.getElementById('expect-sinkhole').checked) {
-                setUI('sinkhole', 'PROBING...', 'loading', "Testing tracker blackholes...");
-                const trackers = ['google-analytics.com/analytics.js', 'doubleclick.net/favicon.ico', 'connect.facebook.net/en_US/fbevents.js'];
-                const results = await Promise.all(trackers.map(url => fetch(`https://www.${url}`, { mode: 'no-cors' }).then(() => false).catch(() => true)));
+                setUI('sinkhole', 'PROBING...', 'loading', "Injecting tracker payloads...");
+                const trackers = [
+                    { url: 'google-analytics.com/analytics.js', name: 'Google Analytics' },
+                    { url: 'doubleclick.net/favicon.ico', name: 'DoubleClick Ads ' },
+                    { url: 'connect.facebook.net/en_US/fbevents.js', name: 'Facebook Pixel  ' }
+                ];
+                let log = "Payload Intercept Analysis:\n---------------------------\n";
+
+                const results = await Promise.all(trackers.map(async (t) => {
+                    const blocked = await fetch(`https://www.${t.url}`, { mode: 'no-cors' }).then(() => false).catch(() => true);
+                    log += `[${blocked ? 'SINKHOLED' : 'RESOLVED '}] ${t.name}\n`;
+                    return blocked;
+                }));
+
                 const passed = document.getElementById('strict-mode').checked ? results.every(r => r) : results.some(r => r);
-                setUI('sinkhole', passed ? 'PASS' : 'fail', passed ? 'pass' : 'fail', `Filtering: ${results.filter(r=>r).length}/${trackers.length} trackers blackholed.`);
+                setUI('sinkhole', passed ? 'PASS' : 'fail', passed ? 'pass' : 'fail', log);
             }
 
-            // 3 & 4. FAULT-TOLERANT METADATA & CRYPT
-            setUI('crypt', 'AUDITING...', 'loading', "Resolving endpoints...");
-            setUI('meta', 'QUERYING...', 'loading', "Fetching IP data...");
+            // 3 & 4. VERBOSE METADATA & CRYPT
+            setUI('crypt', 'AUDITING...', 'loading', "Tracing packet routing...");
+            setUI('meta', 'QUERYING...', 'loading', "Requesting ASN records...");
             
             let isp = "Unknown", myASN = "0", resolverASN = "0", resolverName = "Unknown";
             let metaError = "", cryptError = "";
 
-            // Safely fetch ISP Data with Fallback
             try {
                 const ipData = await fetch('https://ipwho.is/').then(r => r.json());
                 if(ipData.success) { isp = ipData.connection.isp; myASN = ipData.connection.asn; } 
-                else throw new Error("Rate Limited");
+                else throw new Error("API Limit");
             } catch (e) {
                 try {
                     const backup = await fetch('https://ipapi.co/json/').then(r => r.json());
                     isp = backup.org || "Lookup Blocked"; myASN = backup.asn || "0";
-                } catch (err) { metaError = "APIs blocked by AdGuard or Rate Limits."; isp = "Shielded"; }
+                } catch (err) { metaError = "APIs blocked by firewall limits."; isp = "Shielded"; }
             }
 
-            // Safely fetch Resolver Data
             try {
                 const dnsData = await fetch('https://edns.ip-api.com/json').then(r => r.json());
                 resolverASN = dnsData.dns.asn;
-                resolverName = networkMap[resolverASN] || dnsData.dns.geo || dnsData.dns.ip;
-            } catch (e) { cryptError = "Resolver API Blocked (Shielded)."; resolverName = "Encrypted Tunnel"; }
+                resolverName = networkMap[resolverASN] || dnsData.dns.geo || `IP: ${dnsData.dns.ip}`;
+            } catch (e) { cryptError = "Resolver API Blocked."; resolverName = "Encrypted Tunnel"; }
 
-            // Evaluate
-            setUI('meta', metaError ? 'WARN' : 'CONNECTED', metaError ? 'loading' : 'pass', metaError || `ISP: ${isp}\nNode ASN: ${myASN}`);
+            let metaLog = "Edge Node Information:\n----------------------\n";
+            metaLog += `Public IP Owner : ${isp}\n`;
+            metaLog += `Gateway ASN     : AS${myASN}`;
+            setUI('meta', metaError ? 'WARN' : 'CONNECTED', metaError ? 'loading' : 'pass', metaError || metaLog);
             
             if (document.getElementById('expect-crypt').checked) {
                 if (cryptError) {
                     setUI('crypt', 'SHIELDED', 'pass', cryptError);
                 } else {
                     const isEncrypted = (resolverASN != myASN);
-                    setUI('crypt', isEncrypted ? 'PASS' : 'FAIL', isEncrypted ? 'pass' : 'fail', isEncrypted ? `Tunnel Verified: ${resolverName}` : `Leak: ISP is resolving DNS.`);
+                    let cryptLog = "Routing Telemetry:\n------------------\n";
+                    cryptLog += `Entry Node : ${isp}\n`;
+                    cryptLog += `Exit Node  : ${resolverName}\n`;
+                    cryptLog += `Status     : ${isEncrypted ? 'Tunnel Active' : 'ISP Leak Detected'}`;
+                    setUI('crypt', isEncrypted ? 'PASS' : 'FAIL', isEncrypted ? 'pass' : 'fail', cryptLog);
                 }
             }
         }
