@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DNS Test | Network Diagnostics</title>
+    <title>DNS Test | Sentinel Diagnostics</title>
     <style>
         :root {
             --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #c9d1d9;
             --blue: #58a6ff; --green: #238636; --red: #da3633; --yellow: #d29922; --gray: #8b949e;
         }
-        body { background-color: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; padding: 20px; max-width: 700px; margin: 0 auto; line-height: 1.5; }
+        body { background-color: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; padding: 20px; max-width: 700px; margin: 0 auto; line-height: 1.5; }
         h1 { color: var(--blue); border-bottom: 1px solid var(--border); padding-bottom: 10px; font-size: 1.4rem; text-transform: uppercase; letter-spacing: 1px;}
         .module { background-color: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 18px; margin-bottom: 15px; }
         .config-panel { border-color: var(--blue); background-color: #0d1117; margin-bottom: 25px; }
@@ -30,7 +30,7 @@
 </head>
 <body>
 
-    <h1>DNS Test <span style="font-size: 0.6rem; opacity: 0.5;">v1.8</span></h1>
+    <h1>DNS Test <span style="font-size: 0.6rem; opacity: 0.5;">v1.9</span></h1>
 
     <div class="module config-panel">
         <h2>Target Pipeline Rules</h2>
@@ -79,7 +79,11 @@
     </div>
 
     <script>
-        const networkMap = { "45873": "Reliance Jio", "131259": "Kerala Vision", "133201": "Asianet", "13335": "Cloudflare", "19281": "Quad9", "15169": "Google", "34939": "NextDNS", "134149": "AdGuard DNS", "36692": "OpenDNS" };
+        const networkMap = { 
+            "45873": "Reliance Jio", "55836": "Reliance Jio", "131259": "Kerala Vision", 
+            "133201": "Asianet", "13335": "Cloudflare", "19281": "Quad9", 
+            "15169": "Google", "34939": "NextDNS", "134149": "AdGuard DNS", "36692": "OpenDNS" 
+        };
 
         function refreshView() {
             ['dnssec', 'sinkhole', 'routing', 'crypt'].forEach(id => {
@@ -111,7 +115,7 @@
                 return;
             }
 
-            // 1. VERBOSE DNSSEC
+            // 1. DNSSEC
             if (document.getElementById('expect-dnssec').checked) {
                 setUI('dnssec', 'PROBING...', 'loading', "Querying signature servers...");
                 const domains = ['dnssec-failed.org', 'dns-servfail.net', 'badisig.go6lab.si'];
@@ -130,7 +134,7 @@
                 setUI('dnssec', passed ? 'PASS' : 'FAIL', passed ? 'pass' : 'fail', log);
             }
 
-            // 2. VERBOSE SINKHOLE
+            // 2. SINKHOLE
             if (document.getElementById('expect-sinkhole').checked) {
                 setUI('sinkhole', 'PROBING...', 'loading', "Injecting tracker payloads...");
                 const trackers = [
@@ -145,10 +149,10 @@
                     return blocked;
                 }));
                 const passed = document.getElementById('strict-mode').checked ? results.every(r => r) : results.some(r => r);
-                setUI('sinkhole', passed ? 'PASS' : 'fail', passed ? 'pass' : 'fail', log);
+                setUI('sinkhole', passed ? 'PASS' : 'FAIL', passed ? 'pass' : 'fail', log);
             }
 
-            // 3. CDN ROUTING & LATENCY
+            // 3. LATENCY
             if (document.getElementById('expect-routing').checked) {
                 setUI('routing', 'MEASURING...', 'loading', "Pinging global edge networks...");
                 let log = "Edge Node Latency Analysis:\n---------------------------\n";
@@ -163,8 +167,8 @@
                     const cfTime = await measure('https://cp.cloudflare.com/generate_204', 'Cloudflare CDN');
                     const ggTime = await measure('https://connectivitycheck.gstatic.com/generate_204', 'Google Edge   ');
                     
-                    if (cfTime > 150 && ggTime > 150) {
-                        log += `\n[WARN] High Latency. DNSCrypt may be routing your traffic to an out-of-region resolver.`;
+                    if (cfTime > 180 && ggTime > 180) {
+                        log += `\n[WARN] High Latency. Resolver may be out-of-region.`;
                         setUI('routing', 'WARN', 'loading', log);
                     } else {
                         log += `\n[OK] Optimal regional routing.`;
@@ -173,66 +177,64 @@
                 } catch(e) { setUI('routing', 'ERROR', 'fail', 'Failed to measure edge latency.'); }
             }
 
-            // 4 & 5. METADATA & CRYPT
+            // 4 & 5. CRYPT & META
             setUI('crypt', 'AUDITING...', 'loading', "Tracing packet routing...");
             setUI('meta', 'QUERYING...', 'loading', "Requesting ASN records...");
             
             let isp = "Unknown", myASN = "0", resolverASN = "0", resolverName = "Unknown";
-            let metaError = "", cryptError = "";
+            let metaError = "";
 
             try {
                 const ipData = await fetch('https://ipwho.is/').then(r => r.json());
-                if(ipData.success) { isp = ipData.connection.isp; myASN = ipData.connection.asn; } else throw new Error("Limit");
+                if(ipData.success) { isp = ipData.connection.isp; myASN = String(ipData.connection.asn); }
+                else throw new Error();
             } catch (e) {
                 try {
                     const backup = await fetch('https://ipapi.co/json/').then(r => r.json());
-                    if(backup.error) throw new Error("Limit");
-                    isp = backup.org; myASN = backup.asn.replace('AS', '');
-                } catch (err) {
-                    try {
-                        const b2 = await fetch('https://ip.seeip.org/geoip').then(r => r.json());
-                        isp = b2.organization || "Lookup Blocked"; myASN = b2.asn || "0";
-                    } catch (err2) { metaError = "Telemetry APIs rate-limited. Try again in 60s."; isp = "Shielded"; }
-                }
+                    isp = backup.org; myASN = String(backup.asn).replace(/\D/g, '');
+                } catch (err) { isp = "Shielded"; myASN = "0"; metaError = "Lookup Rate-Limited."; }
             }
 
             try {
                 const dnsData = await fetch('https://edns.ip-api.com/json').then(r => r.json());
-                resolverASN = dnsData.dns.asn;
-                resolverName = networkMap[resolverASN] || dnsData.dns.geo || `IP: ${dnsData.dns.ip}`;
-            } catch (e) { cryptError = "Resolver API Blocked."; resolverName = "Encrypted Tunnel"; }
+                resolverASN = String(dnsData.dns.asn);
+                const cleanResASN = resolverASN.replace(/\D/g, '');
+                resolverName = networkMap[cleanResASN] || dnsData.dns.geo || `IP: ${dnsData.dns.ip}`;
+            } catch (e) { resolverName = "Encrypted Tunnel"; }
 
+            // Metadata UI
             let metaLog = "Edge Node Information:\n----------------------\n";
             metaLog += `Public IP Owner : ${isp}\n`;
-            metaLog += `Gateway ASN     : AS${myASN}`;
+            metaLog += `Gateway ASN     : AS${myASN.replace(/\D/g, '')}`;
             setUI('meta', metaError ? 'WARN' : 'CONNECTED', metaError ? 'loading' : 'pass', metaError || metaLog);
             
+            // DNSCrypt UI (With the String Normalization Fix)
             if (document.getElementById('expect-crypt').checked) {
-                if (cryptError) {
-                    setUI('crypt', 'SHIELDED', 'pass', cryptError);
-                } else {
-                    const isEncrypted = (resolverASN != myASN);
-                    let cryptLog = "Routing Telemetry:\n------------------\n";
-                    cryptLog += `Entry Node : ${isp}\n`;
-                    cryptLog += `Exit Node  : ${resolverName}\n`;
-                    cryptLog += `Status     : ${isEncrypted ? 'Tunnel Active' : 'ISP Leak Detected'}`;
-                    setUI('crypt', isEncrypted ? 'PASS' : 'FAIL', isEncrypted ? 'pass' : 'fail', cryptLog);
-                }
+                const cleanResolver = resolverASN.replace(/\D/g, '');
+                const cleanMyASN = myASN.replace(/\D/g, '');
+                
+                // If they are both 0 or empty (blocked), we assume tunnel. 
+                // If they are different and not 0, it's definitely a tunnel.
+                const isEncrypted = (cleanResolver !== cleanMyASN) && (cleanResolver !== "" && cleanMyASN !== "0");
+                
+                let cryptLog = "Routing Telemetry:\n------------------\n";
+                cryptLog += `Entry Node : ${isp}\n`;
+                cryptLog += `Exit Node  : ${resolverName}\n`;
+                cryptLog += `Status     : ${isEncrypted ? 'Tunnel Active' : 'ISP Leak Detected'}`;
+                setUI('crypt', isEncrypted ? 'PASS' : 'FAIL', isEncrypted ? 'pass' : 'fail', cryptLog);
             }
         }
 
         function exportReport() {
             let report = "DNS TEST | SENTINEL DIAGNOSTICS REPORT\n" + "=".repeat(38) + "\n\n";
             const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
-            report += `Timestamp : ${timestamp}\nTarget    : ${window.location.hostname}\n\n`;
+            report += `Timestamp : ${timestamp}\n\n`;
 
             ['dnssec', 'sinkhole', 'routing', 'crypt', 'meta'].forEach(id => {
                 const mod = document.getElementById(`mod-${id}`);
                 const statusBtn = document.getElementById(`${id}-status`);
                 const dataBox = document.getElementById(`${id}-data`);
-                
-                // Only copy modules that are currently visible/active
-                if (mod && mod.style.display !== 'none' && statusBtn && dataBox) {
+                if (mod && mod.style.display !== 'none') {
                     const title = mod.querySelector('h2').innerText;
                     report += `${title} [${statusBtn.innerText}]\n`;
                     report += "-".repeat(title.length + statusBtn.innerText.length + 3) + "\n";
@@ -242,16 +244,10 @@
 
             navigator.clipboard.writeText(report).then(() => {
                 const btn = document.querySelector('button[onclick="exportReport()"]');
-                const originalText = btn.innerText;
-                btn.innerText = "COPIED TO CLIPBOARD!";
-                btn.style.backgroundColor = "#238636";
-                btn.style.borderColor = "#2ea043";
-                setTimeout(() => {
-                    btn.innerText = originalText;
-                    btn.style.backgroundColor = "#1f6feb";
-                    btn.style.borderColor = "#388bfd";
-                }, 2000);
-            }).catch(err => alert("Failed to copy logs."));
+                const old = btn.innerText;
+                btn.innerText = "COPIED!"; btn.style.backgroundColor = "#238636";
+                setTimeout(() => { btn.innerText = old; btn.style.backgroundColor = "#1f6feb"; }, 2000);
+            });
         }
 
         refreshView(); runAllTests();
