@@ -6,88 +6,50 @@
     <title>Sentinel Node | Pipeline Diagnostics</title>
     <style>
         :root {
-            --bg: #0d1117;
-            --card: #161b22;
-            --border: #30363d;
-            --text: #c9d1d9;
-            --blue: #58a6ff;
-            --green: #238636;
-            --red: #da3633;
-            --yellow: #d29922;
-            --gray: #8b949e;
+            --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #c9d1d9;
+            --blue: #58a6ff; --green: #238636; --red: #da3633; --yellow: #d29922; --gray: #8b949e;
         }
-        body { 
-            background-color: var(--bg); color: var(--text); 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            padding: 20px; max-width: 650px; margin: 0 auto; line-height: 1.6;
-        }
-        h1 { color: var(--blue); border-bottom: 1px solid var(--border); padding-bottom: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; font-size: 1.5rem;}
-        .module { 
-            background-color: var(--card); border: 1px solid var(--border); 
-            border-radius: 8px; padding: 18px; margin-bottom: 15px; 
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-            transition: all 0.3s ease;
-        }
-        .config-panel { border-color: var(--gray); background-color: var(--bg); padding: 15px;}
-        h2 { margin-top: 0; font-size: 1.1rem; color: var(--blue); text-transform: uppercase; letter-spacing: 1px; }
+        body { background-color: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; padding: 20px; max-width: 650px; margin: 0 auto; }
+        h1 { color: var(--blue); border-bottom: 1px solid var(--border); padding-bottom: 10px; font-size: 1.5rem; text-transform: uppercase; }
+        .module { background-color: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 18px; margin-bottom: 15px; }
+        h2 { margin-top: 0; font-size: 1.1rem; color: var(--blue); letter-spacing: 1px; }
         p { font-size: 0.85rem; margin: 5px 0 15px 0; color: var(--gray); }
         .status { font-family: monospace; font-weight: bold; padding: 5px 12px; border-radius: 4px; display: inline-block; font-size: 0.95rem; }
         .loading { background-color: var(--yellow); color: #000; }
         .pass { background-color: var(--green); color: #fff; }
         .fail { background-color: var(--red); color: #fff; }
-        .data-readout { background-color: #010409; padding: 12px; border-radius: 6px; color: #a5d6ff; margin-top: 12px; font-size: 0.85rem; font-family: 'Courier New', Courier, monospace; min-height: 1.2em; border: 1px solid #222; }
-        
-        .controls { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 10px; }
-        label { cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; gap: 8px; color: var(--text); font-weight: bold;}
-        input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--blue); }
-        
-        .btn-container { text-align: center; margin-top: 30px; margin-bottom: 30px;}
-        button {
-            background-color: #21262d; color: var(--blue); border: 1px solid var(--border);
-            padding: 12px 28px; border-radius: 6px; cursor: pointer; font-weight: bold;
-            letter-spacing: 1px; transition: 0.2s;
-        }
-        button:hover { background-color: #30363d; border-color: var(--gray); }
+        .offline { background-color: #30363d; color: var(--text); }
+        .data-readout { background-color: #010409; padding: 12px; border-radius: 6px; color: #a5d6ff; margin-top: 12px; font-size: 0.85rem; font-family: 'Courier New', monospace; border: 1px solid #222; }
+        .btn-container { text-align: center; margin-top: 30px; }
+        button { background-color: #21262d; color: var(--blue); border: 1px solid var(--border); padding: 12px 28px; border-radius: 6px; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <h1>Sentinel Diagnostics</h1>
 
-    <div class="module config-panel">
-        <h2 style="color: var(--gray); font-size: 0.95rem;">Target Environment Rules</h2>
-        <div class="controls">
-            <label><input type="checkbox" id="expect-dnssec" checked onchange="toggleModule('dnssec')"> Expect DNSSEC (Unbound)</label>
-            <label><input type="checkbox" id="expect-sinkhole" checked onchange="toggleModule('sinkhole')"> Expect Sinkhole (AdGuard)</label>
-        </div>
-    </div>
-
     <div class="module" id="mod-dnssec">
-        <h2>1. DNSSEC Validation</h2>
-        <p>Checks if the upstream resolver is validating digital signatures.</p>
-        <div id="dnssec-status" class="status loading">TESTING...</div>
-        <div id="dnssec-data" class="data-readout">Connecting to dnssec-failed.org...</div>
+        <h2>1. DNSSEC (Unbound)</h2>
+        <div id="dnssec-status" class="status loading">PENDING...</div>
+        <div id="dnssec-data" class="data-readout">Waiting for connectivity...</div>
     </div>
 
     <div class="module" id="mod-sinkhole">
-        <h2>2. AdGuard Sinkhole</h2>
-        <p>Checks if tracking domains are being intercepted by a local blocklist.</p>
-        <div id="sinkhole-status" class="status loading">TESTING...</div>
-        <div id="sinkhole-data" class="data-readout">Attempting to resolve Google Analytics...</div>
+        <h2>2. Sinkhole (AdGuard)</h2>
+        <div id="sinkhole-status" class="status loading">PENDING...</div>
+        <div id="sinkhole-data" class="data-readout">Waiting for connectivity...</div>
+    </div>
+
+    <div class="module" id="mod-dnscrypt">
+        <h2>3. Encryption (DNSCrypt)</h2>
+        <div id="dnscrypt-status" class="status loading">PENDING...</div>
+        <div id="dnscrypt-data" class="data-readout">Waiting for connectivity...</div>
     </div>
 
     <div class="module">
-        <h2>3. Pipeline Latency</h2>
-        <p>Measures network round-trip time for a DNS-backed HTTPS fetch.</p>
-        <div id="latency-status" class="status loading">MEASURING...</div>
-        <div id="latency-data" class="data-readout">Calculating ms...</div>
-    </div>
-
-    <div class="module">
-        <h2>4. Upstream Provider</h2>
-        <p>Identifies the active DNS routing network and edge gateway.</p>
-        <div id="provider-status" class="status loading">IDENTIFYING...</div>
-        <div id="provider-data" class="data-readout">Parsing trace data...</div>
+        <h2>4. Upstream Metadata</h2>
+        <div id="provider-status" class="status loading">PENDING...</div>
+        <div id="provider-data" class="data-readout">Checking ISP and Resolver...</div>
     </div>
 
     <div class="btn-container">
@@ -95,8 +57,7 @@
     </div>
 
     <script>
-        const cityMap = { "MAA": "Chennai", "COK": "Kochi", "TRV": "Thiruvananthapuram", "BLR": "Bengaluru", "BOM": "Mumbai", "DEL": "Delhi", "HYD": "Hyderabad", "CCU": "Kolkata", "PNQ": "Pune", "NAG": "Nagpur", "AMD": "Ahmedabad", "PAT": "Patna", "IXC": "Chandigarh" };
-        const networkMap = { "45873": "Reliance Jio", "55836": "Reliance Jio", "132427": "Reliance Jio", "135941": "Reliance Jio", "136268": "Reliance Jio", "55458": "Reliance Jio", "9498": "Bharti Airtel", "24560": "Bharti Airtel", "45609": "Bharti Airtel", "133480": "Bharti Airtel", "55481": "Vodafone Idea (Vi)", "55644": "Vodafone Idea (Vi)", "38266": "Vodafone Idea (Vi)", "134213": "Vodafone Idea (Vi)", "9829": "BSNL", "21850": "BSNL", "131259": "Kerala Vision", "132555": "Kerala Vision", "133201": "Asianet", "17429": "Asianet", "133661": "ACT Fibernet", "133296": "ACT Fibernet", "17488": "Hathway", "24021": "RailTel", "13335": "Cloudflare", "19281": "Quad9", "20766": "Quad9", "15169": "Google", "396982": "Google Cloud", "34939": "NextDNS", "34549": "NextDNS", "36692": "OpenDNS", "134149": "AdGuard DNS", "133083": "AdGuard DNS", "132373": "AdGuard DNS" };
+        const networkMap = { "45873": "Reliance Jio", "9829": "BSNL", "131259": "Kerala Vision", "133201": "Asianet", "13335": "Cloudflare", "19281": "Quad9", "15169": "Google", "36692": "OpenDNS" };
 
         const setUI = (id, text, className, dataText) => {
             const status = document.getElementById(`${id}-status`);
@@ -105,89 +66,62 @@
             if (data && dataText) data.textContent = dataText;
         };
 
-        // Instantly hide/show modules
-        function toggleModule(id) {
-            const isChecked = document.getElementById(`expect-${id}`).checked;
-            document.getElementById(`mod-${id}`).style.display = isChecked ? 'block' : 'none';
+        async function checkConnectivity() {
+            try {
+                const res = await fetch('https://www.cloudflare.com/cdn-cgi/trace', { cache: 'no-store' });
+                return res.ok;
+            } catch (e) { return false; }
         }
 
-        const testDnssec = () => {
-            setUI('dnssec', 'TESTING...', 'loading', 'Connecting to dnssec-failed.org...');
+        async function runAllTests() {
+            setUI('dnssec', 'TESTING...', 'loading', null);
+            setUI('sinkhole', 'TESTING...', 'loading', null);
+            setUI('dnscrypt', 'AUDITING...', 'loading', null);
+            setUI('provider', 'QUERYING...', 'loading', null);
+
+            const isOnline = await checkConnectivity();
+            if (!isOnline) {
+                const msg = "OFFLINE: Check your internet connection.";
+                setUI('dnssec', 'OFFLINE', 'offline', msg);
+                setUI('sinkhole', 'OFFLINE', 'offline', msg);
+                setUI('dnscrypt', 'OFFLINE', 'offline', msg);
+                setUI('provider', 'OFFLINE', 'offline', msg);
+                return;
+            }
+
+            // 1. DNSSEC Test (Checks for block of bad signatures)
             const img = new Image();
-            img.onload = () => setUI('dnssec', 'FAIL: VULNERABLE', 'fail', 'Invalid signature was resolved. Validation is inactive.');
-            img.onerror = () => setUI('dnssec', 'PASS: SECURE', 'pass', 'Network correctly blocked the invalid signature (NXDOMAIN).');
+            img.onload = () => setUI('dnssec', 'FAIL', 'fail', 'Vulnerable! Resolved an invalid signature.');
+            img.onerror = () => setUI('dnssec', 'PASS', 'pass', 'Verified. Unbound blocked the invalid signature.');
             img.src = "http://dnssec-failed.org/logo.png?" + Date.now();
-        };
 
-        const testSinkhole = () => {
-            setUI('sinkhole', 'TESTING...', 'loading', 'Attempting to resolve tracking domain...');
+            // 2. Sinkhole Test (Checks for block of trackers)
             fetch('https://www.google-analytics.com/analytics.js', { mode: 'no-cors' })
-                .then(() => setUI('sinkhole', 'FAIL: LEAK', 'fail', 'Tracker resolved successfully. No DNS sinkhole detected.'))
-                .catch(() => setUI('sinkhole', 'PASS: SINKHOLED', 'pass', 'Tracker request was successfully intercepted and blackholed.'));
-        };
+                .then(() => setUI('sinkhole', 'FAIL', 'fail', 'Leak! AdGuard is not blocking trackers.'))
+                .catch(() => setUI('sinkhole', 'PASS', 'pass', 'Secure. Tracker intercepted at the DNS level.'));
 
-        const testLatency = async () => {
-            setUI('latency', 'MEASURING...', 'loading', 'Calculating ms...');
-            const start = performance.now();
+            // 3. DNSCrypt & Provider Test
             try {
-                await fetch('https://cp.cloudflare.com/generate_204', { mode: 'no-cors', cache: 'no-store' });
-                const rtt = Math.round(performance.now() - start);
-                if (rtt < 150) setUI('latency', `${rtt}ms`, 'pass', 'Excellent response time. Pipeline is highly efficient.');
-                else if (rtt < 500) setUI('latency', `${rtt}ms`, 'loading', 'Moderate delay detected. Normal for wireless routing.');
-                else setUI('latency', `${rtt}ms`, 'fail', 'High latency detected. Network congestion or heavy routing overhead.');
-            } catch (e) {
-                setUI('latency', 'ERROR', 'fail', 'Latency test failed. Direct ping blocked by local firewall rules.');
-            }
-        };
-
-        async function runProviderCheck() {
-            setUI('provider', 'IDENTIFYING...', 'loading', 'Parsing trace data...');
-            try {
-                let net = "Unknown", city = "Unknown Node", asn = "";
+                const ipRes = await fetch('https://ipwho.is/').then(r => r.json());
+                const dnsRes = await fetch('https://edns.ip-api.com/json').then(r => r.json());
                 
-                // Cloudflare Metadata
-                try {
-                    const cfResponse = await fetch('https://www.cloudflare.com/cdn-cgi/trace');
-                    const text = await cfResponse.text();
-                    const info = {};
-                    text.split('\n').forEach(line => { const p = line.split('='); if (p.length === 2) info[p[0].trim().toLowerCase()] = p[1].trim(); });
-                    asn = (info.asno || info.asn || info.as || "").replace(/\D/g, '');
-                    if (info.colo) city = cityMap[info.colo] || `${info.colo} Node`;
-                    if (asn && networkMap[asn]) net = networkMap[asn];
-                } catch (e) {}
+                const isp = ipRes.connection.isp || "Unknown";
+                const resolver = networkMap[dnsRes.dns.asn] || dnsRes.dns.geo || dnsRes.dns.ip;
 
-                // Primary Fallback (ipwho.is)
-                if (net === "Unknown") {
-                    try {
-                        const ipData = await fetch('https://ipwho.is/').then(r => r.json());
-                        if (ipData.success) {
-                            net = ipData.connection.isp || `ASN: ${ipData.connection.asn}`;
-                            if (city === "Unknown Node" && ipData.city) city = `${ipData.city} (Geo-IP)`;
-                        } else {
-                            // Secondary Fallback if limits are hit
-                            const backupData = await fetch('https://ipapi.co/json/').then(r => r.json());
-                            net = backupData.org || "Shielded by AdGuard";
-                        }
-                    } catch(e) {
-                        const expectBlock = document.getElementById('expect-sinkhole').checked;
-                        net = expectBlock ? "Shielded (Lookup Blocked)" : "Network Restricted";
-                    }
-                }
+                // DNSCrypt is considered PASS if the resolver is NOT the ISP
+                const cryptPass = !resolver.toLowerCase().includes(isp.split(' ')[0].toLowerCase());
+                
+                if (cryptPass) setUI('dnscrypt', 'PASS', 'pass', `Encrypted. Tunneling through ${resolver}.`);
+                else setUI('dnscrypt', 'FAIL', 'fail', `Leaking! Your ISP (${isp}) is resolving your DNS.`);
+
                 setUI('provider', 'CONNECTED', 'pass', null);
-                document.getElementById('provider-data').innerHTML = `<strong>Network:</strong> ${net}<br><strong>Gateway:</strong> ${city}`;
+                document.getElementById('provider-data').innerHTML = `<strong>ISP:</strong> ${isp}<br><strong>Resolver:</strong> ${resolver}`;
             } catch (e) {
-                setUI('provider', 'OFFLINE', 'fail', 'Could not fetch network metadata. Check connection.');
+                setUI('dnscrypt', 'ERROR', 'fail', 'Could not verify encryption tunnel.');
+                setUI('provider', 'ERROR', 'fail', 'Metadata fetch failed.');
             }
         }
 
-        function runAllTests() {
-            if (document.getElementById('expect-dnssec').checked) testDnssec();
-            if (document.getElementById('expect-sinkhole').checked) testSinkhole();
-            testLatency();
-            runProviderCheck();
-        }
-
-        // Initialize on load
         runAllTests();
     </script>
 </body>
