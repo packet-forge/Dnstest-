@@ -30,7 +30,7 @@
 </head>
 <body>
 
-    <h1>DNS Test <span style="font-size: 0.6rem; opacity: 0.5;">v1.9</span></h1>
+    <h1>DNS Test <span style="font-size: 0.6rem; opacity: 0.5;">v2.0</span></h1>
 
     <div class="module config-panel">
         <h2>Target Pipeline Rules</h2>
@@ -167,9 +167,9 @@
                     const cfTime = await measure('https://cp.cloudflare.com/generate_204', 'Cloudflare CDN');
                     const ggTime = await measure('https://connectivitycheck.gstatic.com/generate_204', 'Google Edge   ');
                     
-                    if (cfTime > 180 && ggTime > 180) {
-                        log += `\n[WARN] High Latency. Resolver may be out-of-region.`;
-                        setUI('routing', 'WARN', 'loading', log);
+                    if (cfTime > 200 || ggTime > 200) {
+                        log += `\n[FAIL] Severe Latency detected in pipeline. Check ISP routing.`;
+                        setUI('routing', 'FAIL', 'fail', log);
                     } else {
                         log += `\n[OK] Optimal regional routing.`;
                         setUI('routing', 'PASS', 'pass', log);
@@ -208,15 +208,20 @@
             metaLog += `Gateway ASN     : AS${myASN.replace(/\D/g, '')}`;
             setUI('meta', metaError ? 'WARN' : 'CONNECTED', metaError ? 'loading' : 'pass', metaError || metaLog);
             
-            // DNSCrypt UI (With the String Normalization Fix)
+            // DNSCrypt UI (The API Name-Matching Fix)
             if (document.getElementById('expect-crypt').checked) {
-                const cleanResolver = resolverASN.replace(/\D/g, '');
-                const cleanMyASN = myASN.replace(/\D/g, '');
+                const exitNodeLower = resolverName.toLowerCase();
+                const ispKeyword = isp.split(' ')[0].toLowerCase();
                 
-                // If they are both 0 or empty (blocked), we assume tunnel. 
-                // If they are different and not 0, it's definitely a tunnel.
-                const isEncrypted = (cleanResolver !== cleanMyASN) && (cleanResolver !== "" && cleanMyASN !== "0");
+                // If exit node belongs to a known secure provider, it passes.
+                const knownTunnels = ['cloudflare', 'quad9', 'google', 'nextdns', 'adguard', 'cisco'];
+                let isEncrypted = knownTunnels.some(t => exitNodeLower.includes(t));
                 
+                // If the exit node name explicitly matches your local ISP, it's a leak.
+                if (exitNodeLower.includes(ispKeyword) && ispKeyword.length > 2) {
+                    isEncrypted = false;
+                }
+
                 let cryptLog = "Routing Telemetry:\n------------------\n";
                 cryptLog += `Entry Node : ${isp}\n`;
                 cryptLog += `Exit Node  : ${resolverName}\n`;
