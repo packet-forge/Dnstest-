@@ -14,50 +14,53 @@
             --green: #238636;
             --red: #da3633;
             --yellow: #d29922;
+            --gray: #8b949e;
         }
         body { 
-            background-color: var(--bg); 
-            color: var(--text); 
+            background-color: var(--bg); color: var(--text); 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            padding: 20px; 
-            max-width: 650px; 
-            margin: 0 auto;
-            line-height: 1.6;
+            padding: 20px; max-width: 650px; margin: 0 auto; line-height: 1.6;
         }
         h1 { color: var(--blue); border-bottom: 1px solid var(--border); padding-bottom: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; font-size: 1.5rem;}
         .module { 
-            background-color: var(--card); 
-            border: 1px solid var(--border); 
-            border-radius: 8px; 
-            padding: 18px; 
-            margin-bottom: 15px; 
+            background-color: var(--card); border: 1px solid var(--border); 
+            border-radius: 8px; padding: 18px; margin-bottom: 15px; 
             box-shadow: 0 4px 6px rgba(0,0,0,0.2);
         }
+        .config-panel { border-color: var(--gray); background-color: var(--bg); padding: 15px;}
         h2 { margin-top: 0; font-size: 1.1rem; color: var(--blue); text-transform: uppercase; letter-spacing: 1px; }
-        p { font-size: 0.85rem; margin: 5px 0 15px 0; color: #8b949e; }
+        p { font-size: 0.85rem; margin: 5px 0 15px 0; color: var(--gray); }
         .status { font-family: monospace; font-weight: bold; padding: 5px 12px; border-radius: 4px; display: inline-block; font-size: 0.95rem; }
         .loading { background-color: var(--yellow); color: #000; }
         .pass { background-color: var(--green); color: #fff; }
         .fail { background-color: var(--red); color: #fff; }
+        .expected { background-color: #30363d; color: var(--text); border: 1px solid var(--gray); }
         .data-readout { background-color: #010409; padding: 12px; border-radius: 6px; color: #a5d6ff; margin-top: 12px; font-size: 0.85rem; font-family: 'Courier New', Courier, monospace; min-height: 1.2em; border: 1px solid #222; }
+        
+        .controls { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 10px; }
+        label { cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; gap: 8px; color: var(--text); font-weight: bold;}
+        input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--blue); }
+        
         .btn-container { text-align: center; margin-top: 30px; margin-bottom: 30px;}
         button {
-            background-color: #21262d;
-            color: var(--blue);
-            border: 1px solid var(--border);
-            padding: 12px 28px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
-            letter-spacing: 1px;
-            transition: 0.2s;
+            background-color: #21262d; color: var(--blue); border: 1px solid var(--border);
+            padding: 12px 28px; border-radius: 6px; cursor: pointer; font-weight: bold;
+            letter-spacing: 1px; transition: 0.2s;
         }
-        button:hover { background-color: #30363d; border-color: #8b949e; }
+        button:hover { background-color: #30363d; border-color: var(--gray); }
     </style>
 </head>
 <body>
 
     <h1>Sentinel Diagnostics</h1>
+
+    <div class="module config-panel">
+        <h2 style="color: var(--gray); font-size: 0.95rem;">Target Environment Rules</h2>
+        <div class="controls">
+            <label><input type="checkbox" id="expect-dnssec" checked> Expect DNSSEC (Unbound)</label>
+            <label><input type="checkbox" id="expect-sinkhole" checked> Expect Sinkhole (AdGuard)</label>
+        </div>
+    </div>
 
     <div class="module">
         <h2>1. DNSSEC Validation</h2>
@@ -88,155 +91,101 @@
     </div>
 
     <div class="btn-container">
-        <button onclick="window.location.reload()">RE-SCAN PIPELINE</button>
+        <button onclick="runAllTests()">RE-SCAN PIPELINE</button>
     </div>
 
     <script>
-        // Mapping Cloudflare PoP codes to Cities
-        const cityMap = { 
-            "MAA": "Chennai", "COK": "Kochi", "TRV": "Thiruvananthapuram", 
-            "BLR": "Bengaluru", "BOM": "Mumbai", "DEL": "Delhi", 
-            "HYD": "Hyderabad", "CCU": "Kolkata", "PNQ": "Pune",
-            "NAG": "Nagpur", "AMD": "Ahmedabad", "PAT": "Patna", "IXC": "Chandigarh"
+        const cityMap = { "MAA": "Chennai", "COK": "Kochi", "TRV": "Thiruvananthapuram", "BLR": "Bengaluru", "BOM": "Mumbai", "DEL": "Delhi", "HYD": "Hyderabad", "CCU": "Kolkata", "PNQ": "Pune", "NAG": "Nagpur", "AMD": "Ahmedabad", "PAT": "Patna", "IXC": "Chandigarh" };
+        const networkMap = { "45873": "Reliance Jio", "55836": "Reliance Jio", "132427": "Reliance Jio", "135941": "Reliance Jio", "136268": "Reliance Jio", "55458": "Reliance Jio", "9498": "Bharti Airtel", "24560": "Bharti Airtel", "45609": "Bharti Airtel", "133480": "Bharti Airtel", "55481": "Vodafone Idea (Vi)", "55644": "Vodafone Idea (Vi)", "38266": "Vodafone Idea (Vi)", "134213": "Vodafone Idea (Vi)", "9829": "BSNL", "21850": "BSNL", "131259": "Kerala Vision", "132555": "Kerala Vision", "133201": "Asianet", "17429": "Asianet", "133661": "ACT Fibernet", "133296": "ACT Fibernet", "17488": "Hathway", "24021": "RailTel", "13335": "Cloudflare", "19281": "Quad9", "20766": "Quad9", "15169": "Google", "396982": "Google Cloud", "34939": "NextDNS", "34549": "NextDNS", "36692": "OpenDNS", "134149": "AdGuard DNS", "133083": "AdGuard DNS", "132373": "AdGuard DNS" };
+
+        const setUI = (id, text, className, dataText) => {
+            const status = document.getElementById(`${id}-status`);
+            const data = document.getElementById(`${id}-data`);
+            status.textContent = text; status.className = `status ${className}`;
+            if (dataText) data.textContent = dataText;
         };
 
-        // Massive mapping of ASNs to human-readable network names
-        const networkMap = { 
-            "45873": "Reliance Jio", "55836": "Reliance Jio", "132427": "Reliance Jio", "135941": "Reliance Jio", "136268": "Reliance Jio", "55458": "Reliance Jio",
-            "9498": "Bharti Airtel", "24560": "Bharti Airtel", "45609": "Bharti Airtel", "133480": "Bharti Airtel",
-            "55481": "Vodafone Idea (Vi)", "55644": "Vodafone Idea (Vi)", "38266": "Vodafone Idea (Vi)", "134213": "Vodafone Idea (Vi)",
-            "9829": "BSNL", "21850": "BSNL",
-            "131259": "Kerala Vision", "132555": "Kerala Vision",
-            "133201": "Asianet", "17429": "Asianet",
-            "133661": "ACT Fibernet", "133296": "ACT Fibernet",
-            "17488": "Hathway", "24021": "RailTel",
-            "13335": "Cloudflare", "19281": "Quad9", "20766": "Quad9", 
-            "15169": "Google", "396982": "Google Cloud",
-            "34939": "NextDNS", "34549": "NextDNS",
-            "36692": "OpenDNS (Cisco)",
-            "134149": "AdGuard DNS", "133083": "AdGuard DNS", "132373": "AdGuard DNS"
-        };
-
-        // 1. DNSSEC TEST
         const testDnssec = () => {
-            const status = document.getElementById('dnssec-status');
-            const data = document.getElementById('dnssec-data');
+            setUI('dnssec', 'TESTING...', 'loading', 'Connecting to dnssec-failed.org...');
+            const expectSecure = document.getElementById('expect-dnssec').checked;
             const img = new Image();
             img.onload = () => {
-                status.textContent = "FAIL: VULNERABLE";
-                status.className = "status fail";
-                data.textContent = "Invalid signature was resolved. Validation is inactive on this network.";
+                if (expectSecure) setUI('dnssec', 'FAIL: VULNERABLE', 'fail', 'Invalid signature was resolved. Validation is inactive.');
+                else setUI('dnssec', 'EXPECTED: UNSECURED', 'expected', 'DNSSEC is inactive, matching your configuration rules.');
             };
-            img.onerror = () => {
-                status.textContent = "PASS: SECURE";
-                status.className = "status pass";
-                data.textContent = "The network correctly blocked the invalid signature (NXDOMAIN).";
-            };
+            img.onerror = () => setUI('dnssec', 'PASS: SECURE', 'pass', 'Network correctly blocked the invalid signature (NXDOMAIN).');
             img.src = "http://dnssec-failed.org/logo.png?" + Date.now();
         };
 
-        // 2. SINKHOLE TEST
         const testSinkhole = () => {
-            const status = document.getElementById('sinkhole-status');
-            const data = document.getElementById('sinkhole-data');
+            setUI('sinkhole', 'TESTING...', 'loading', 'Attempting to resolve tracking domain...');
+            const expectBlock = document.getElementById('expect-sinkhole').checked;
             fetch('https://www.google-analytics.com/analytics.js', { mode: 'no-cors' })
                 .then(() => {
-                    status.textContent = "FAIL: LEAK";
-                    status.className = "status fail";
-                    data.textContent = "Tracker resolved successfully. No DNS sinkhole detected.";
+                    if (expectBlock) setUI('sinkhole', 'FAIL: LEAK', 'fail', 'Tracker resolved successfully. No DNS sinkhole detected.');
+                    else setUI('sinkhole', 'EXPECTED: UNFILTERED', 'expected', 'Tracker resolved. Expected behavior for an unfiltered connection.');
                 })
-                .catch(() => {
-                    status.textContent = "PASS: SINKHOLED";
-                    status.className = "status pass";
-                    data.textContent = "Tracker request was successfully intercepted and blackholed.";
-                });
+                .catch(() => setUI('sinkhole', 'PASS: SINKHOLED', 'pass', 'Tracker request was successfully intercepted and blackholed.'));
         };
 
-        // 3. LATENCY TEST
         const testLatency = async () => {
-            const status = document.getElementById('latency-status');
-            const data = document.getElementById('latency-data');
+            setUI('latency', 'MEASURING...', 'loading', 'Calculating ms...');
             const start = performance.now();
             try {
-                await fetch('https://1.1.1.1/generate_204', { mode: 'no-cors', cache: 'no-store' });
-                const end = performance.now();
-                const rtt = Math.round(end - start);
-                status.textContent = `${rtt}ms`;
-                
-                if (rtt < 150) {
-                    status.className = "status pass";
-                    data.textContent = "Excellent response time. Pipeline is operating efficiently.";
-                } else if (rtt < 500) {
-                    status.className = "status loading";
-                    data.textContent = "Moderate delay detected. Normal for mobile/wireless connections.";
-                } else {
-                    status.className = "status fail";
-                    data.textContent = "High latency detected. Network congestion or heavy routing overhead.";
-                }
+                await fetch('https://cp.cloudflare.com/generate_204', { mode: 'no-cors', cache: 'no-store' });
+                const rtt = Math.round(performance.now() - start);
+                if (rtt < 150) setUI('latency', `${rtt}ms`, 'pass', 'Excellent response time. Pipeline is highly efficient.');
+                else if (rtt < 500) setUI('latency', `${rtt}ms`, 'loading', 'Moderate delay detected. Normal for wireless routing.');
+                else setUI('latency', `${rtt}ms`, 'fail', 'High latency detected. Network congestion or heavy routing overhead.');
             } catch (e) {
-                status.textContent = "ERROR";
-                status.className = "status fail";
-                data.textContent = "Latency test failed. Check internet connection.";
+                setUI('latency', 'ERROR', 'fail', 'Latency test failed. Direct ping blocked by local firewall rules.');
             }
         };
 
-        // 4. UPSTREAM PROVIDER TEST (CORS-Bypass Version)
         async function runProviderCheck() {
-            const status = document.getElementById('provider-status');
-            const data = document.getElementById('provider-data');
+            setUI('provider', 'IDENTIFYING...', 'loading', 'Parsing trace data...');
             try {
-                let net = "Unknown";
-                let city = "Unknown Node";
-                let asn = "";
-
-                // Step 1: Hit Cloudflare for the Gateway/PoP data
+                let net = "Unknown", city = "Unknown Node", asn = "";
                 try {
                     const cfResponse = await fetch('https://www.cloudflare.com/cdn-cgi/trace');
                     const text = await cfResponse.text();
                     const info = {};
-                    
-                    text.split('\n').forEach(line => {
-                        const p = line.split('=');
-                        if (p.length === 2) info[p[0].trim().toLowerCase()] = p[1].trim();
-                    });
-
+                    text.split('\n').forEach(line => { const p = line.split('='); if (p.length === 2) info[p[0].trim().toLowerCase()] = p[1].trim(); });
                     asn = (info.asno || info.asn || info.as || "").replace(/\D/g, '');
                     if (info.colo) city = cityMap[info.colo] || `${info.colo} Node`;
                     if (asn && networkMap[asn]) net = networkMap[asn];
-                } catch (e) { console.log("Cloudflare trace blocked or failed."); }
+                } catch (e) {}
 
-                // Step 2: The Fallback (Bypasses Android local file CORS limits)
                 if (net === "Unknown") {
                     try {
                         const ipData = await fetch('https://ipwho.is/').then(r => r.json());
                         if (ipData.success) {
                             net = ipData.connection.isp || `ASN: ${ipData.connection.asn}`;
-                            if (city === "Unknown Node" && ipData.city) {
-                                city = `${ipData.city} (Geo-IP)`;
-                            }
+                            if (city === "Unknown Node" && ipData.city) city = `${ipData.city} (Geo-IP)`;
                         } else {
-                            net = asn ? `ASN: ${asn}` : "Network Restricted";
+                            net = "Blocked by API Limits";
                         }
-                    } catch(e) { 
-                        net = asn ? `ASN: ${asn}` : "Network Restricted (CORS Block)";
+                    } catch(e) {
+                        const expectBlock = document.getElementById('expect-sinkhole').checked;
+                        net = expectBlock ? "Shielded (Lookup Blocked)" : "Network Restricted";
                     }
                 }
-
-                status.textContent = "CONNECTED";
-                status.className = "status pass";
-                data.innerHTML = `<strong>Network:</strong> ${net}<br><strong>Gateway:</strong> ${city}`;
+                setUI('provider', 'CONNECTED', 'pass', null);
+                document.getElementById('provider-data').innerHTML = `<strong>Network:</strong> ${net}<br><strong>Gateway:</strong> ${city}`;
             } catch (e) {
-                status.textContent = "OFFLINE";
-                status.className = "status fail";
-                data.textContent = "Could not fetch network metadata. Check connection.";
+                setUI('provider', 'OFFLINE', 'fail', 'Could not fetch network metadata. Check connection.');
             }
         }
 
-        // Initialize all tests on load
-        testDnssec();
-        testSinkhole();
-        testLatency();
-        runProviderCheck();
+        function runAllTests() {
+            testDnssec();
+            testSinkhole();
+            testLatency();
+            runProviderCheck();
+        }
+
+        // Initialize on load
+        runAllTests();
     </script>
 </body>
 </html>
