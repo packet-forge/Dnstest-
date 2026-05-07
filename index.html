@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sentinel Node | Verbose Diagnostics</title>
+    <title>DNS Test | Network Diagnostics</title>
     <style>
         :root {
             --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #c9d1d9;
@@ -14,30 +14,30 @@
         .module { background-color: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 18px; margin-bottom: 15px; }
         .config-panel { border-color: var(--blue); background-color: #0d1117; margin-bottom: 25px; }
         h2 { margin-top: 0; font-size: 1rem; color: var(--blue); text-transform: uppercase; }
-        p { font-size: 0.8rem; margin: 5px 0 12px 0; color: var(--gray); }
         .status { font-family: monospace; font-weight: bold; padding: 4px 10px; border-radius: 4px; display: inline-block; font-size: 0.85rem; text-transform: uppercase; }
         .loading { background-color: var(--yellow); color: #000; }
         .pass { background-color: var(--green); color: #fff; }
         .fail { background-color: var(--red); color: #fff; }
         .offline { background-color: #30363d; color: var(--text); }
         .data-readout { background-color: #010409; padding: 12px; border-radius: 6px; color: #a5d6ff; margin-top: 12px; font-size: 0.8rem; font-family: 'Courier New', Courier, monospace; border: 1px solid #222; white-space: pre-wrap; line-height: 1.6; }
-        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 15px; }
         label { cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; font-weight: 500; }
         input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--blue); }
         .btn-container { text-align: center; margin-top: 30px; }
-        button { background-color: #21262d; color: var(--blue); border: 1px solid var(--border); padding: 14px 32px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; width: 100%; max-width: 300px; }
+        button { background-color: #21262d; color: var(--blue); border: 1px solid var(--border); padding: 14px 32px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; width: 100%; max-width: 300px; text-transform: uppercase; letter-spacing: 1px;}
         button:hover { background-color: #30363d; border-color: var(--gray); }
     </style>
 </head>
 <body>
 
-    <h1>Sentinel Diagnostics <span style="font-size: 0.6rem; opacity: 0.5;">v1.7</span></h1>
+    <h1>DNS Test <span style="font-size: 0.6rem; opacity: 0.5;">v1.8</span></h1>
 
     <div class="module config-panel">
         <h2>Target Pipeline Rules</h2>
         <div class="controls">
             <label><input type="checkbox" id="expect-dnssec" checked onchange="refreshView()"> DNSSEC (Unbound)</label>
             <label><input type="checkbox" id="expect-sinkhole" checked onchange="refreshView()"> Sinkhole (AdGuard)</label>
+            <label><input type="checkbox" id="expect-routing" checked onchange="refreshView()"> CDN Routing (Latency)</label>
             <label><input type="checkbox" id="expect-crypt" checked onchange="refreshView()"> Encryption (DNSCrypt)</label>
             <label><input type="checkbox" id="strict-mode" checked> Strict Validation</label>
         </div>
@@ -55,27 +55,33 @@
         <div id="sinkhole-data" class="data-readout">Waiting for audit...</div>
     </div>
 
+    <div class="module" id="mod-routing">
+        <h2>3. CDN Routing & Latency</h2>
+        <div id="routing-status" class="status loading">IDLE</div>
+        <div id="routing-data" class="data-readout">Waiting for audit...</div>
+    </div>
+
     <div class="module" id="mod-crypt">
-        <h2>3. DNSCrypt Tunnel</h2>
+        <h2>4. DNSCrypt Tunnel</h2>
         <div id="crypt-status" class="status loading">IDLE</div>
         <div id="crypt-data" class="data-readout">Waiting for audit...</div>
     </div>
 
     <div class="module">
-        <h2>4. Pipeline Metadata</h2>
+        <h2>5. Pipeline Metadata</h2>
         <div id="meta-status" class="status loading">IDLE</div>
         <div id="meta-data" class="data-readout">Network details...</div>
     </div>
 
     <div class="btn-container">
-        <button onclick="runAllTests()">RUN VERBOSE AUDIT</button>
+        <button onclick="runAllTests()">Retry Test</button>
     </div>
 
     <script>
         const networkMap = { "45873": "Reliance Jio", "131259": "Kerala Vision", "133201": "Asianet", "13335": "Cloudflare", "19281": "Quad9", "15169": "Google", "34939": "NextDNS", "134149": "AdGuard DNS", "36692": "OpenDNS" };
 
         function refreshView() {
-            ['dnssec', 'sinkhole', 'crypt'].forEach(id => {
+            ['dnssec', 'sinkhole', 'routing', 'crypt'].forEach(id => {
                 document.getElementById(`mod-${id}`).style.display = document.getElementById(`expect-${id}`).checked ? 'block' : 'none';
             });
         }
@@ -100,7 +106,7 @@
 
         async function runAllTests() {
             if (!(await checkConnectivity())) {
-                ['dnssec', 'sinkhole', 'crypt', 'meta'].forEach(id => setUI(id, 'OFFLINE', 'offline', "OFFLINE: Gateway unreachable."));
+                ['dnssec', 'sinkhole', 'routing', 'crypt', 'meta'].forEach(id => setUI(id, 'OFFLINE', 'offline', "OFFLINE: Gateway unreachable."));
                 return;
             }
 
@@ -109,19 +115,16 @@
                 setUI('dnssec', 'PROBING...', 'loading', "Querying signature servers...");
                 const domains = ['dnssec-failed.org', 'dns-servfail.net', 'badisig.go6lab.si'];
                 let log = "Target Signature Analysis:\n--------------------------\n";
-                
                 const results = await Promise.all(domains.map(async (d) => {
                     const blocked = await new Promise(res => {
                         const img = new Image();
-                        img.onload = () => res(false); 
-                        img.onerror = () => res(true);
+                        img.onload = () => res(false); img.onerror = () => res(true);
                         img.src = `http://${d}/favicon.ico?${Date.now()}`;
                         setTimeout(() => res(true), 4000);
                     });
                     log += `[${blocked ? 'SECURE' : 'LEAK  '}] ${d}\n`;
                     return blocked;
                 }));
-                
                 const passed = document.getElementById('strict-mode').checked ? results.every(r => r) : results.some(r => r);
                 setUI('dnssec', passed ? 'PASS' : 'FAIL', passed ? 'pass' : 'fail', log);
             }
@@ -135,18 +138,41 @@
                     { url: 'connect.facebook.net/en_US/fbevents.js', name: 'Facebook Pixel  ' }
                 ];
                 let log = "Payload Intercept Analysis:\n---------------------------\n";
-
                 const results = await Promise.all(trackers.map(async (t) => {
                     const blocked = await fetch(`https://www.${t.url}`, { mode: 'no-cors' }).then(() => false).catch(() => true);
                     log += `[${blocked ? 'SINKHOLED' : 'RESOLVED '}] ${t.name}\n`;
                     return blocked;
                 }));
-
                 const passed = document.getElementById('strict-mode').checked ? results.every(r => r) : results.some(r => r);
                 setUI('sinkhole', passed ? 'PASS' : 'fail', passed ? 'pass' : 'fail', log);
             }
 
-            // 3 & 4. VERBOSE METADATA & CRYPT
+            // 3. CDN ROUTING & LATENCY
+            if (document.getElementById('expect-routing').checked) {
+                setUI('routing', 'MEASURING...', 'loading', "Pinging global edge networks...");
+                let log = "Edge Node Latency Analysis:\n---------------------------\n";
+                try {
+                    const measure = async (url, name) => {
+                        const start = performance.now();
+                        await fetch(url, { mode: 'no-cors', cache: 'no-store' });
+                        const rtt = Math.round(performance.now() - start);
+                        log += `[${rtt.toString().padStart(4, ' ')}ms] ${name}\n`;
+                        return rtt;
+                    };
+                    const cfTime = await measure('https://cp.cloudflare.com/generate_204', 'Cloudflare CDN');
+                    const ggTime = await measure('https://connectivitycheck.gstatic.com/generate_204', 'Google Edge   ');
+                    
+                    if (cfTime > 150 && ggTime > 150) {
+                        log += `\n[WARN] High Latency. DNSCrypt may be routing your traffic to an out-of-region resolver.`;
+                        setUI('routing', 'WARN', 'loading', log);
+                    } else {
+                        log += `\n[OK] Optimal regional routing.`;
+                        setUI('routing', 'PASS', 'pass', log);
+                    }
+                } catch(e) { setUI('routing', 'ERROR', 'fail', 'Failed to measure edge latency.'); }
+            }
+
+            // 4 & 5. METADATA & CRYPT
             setUI('crypt', 'AUDITING...', 'loading', "Tracing packet routing...");
             setUI('meta', 'QUERYING...', 'loading', "Requesting ASN records...");
             
@@ -155,13 +181,18 @@
 
             try {
                 const ipData = await fetch('https://ipwho.is/').then(r => r.json());
-                if(ipData.success) { isp = ipData.connection.isp; myASN = ipData.connection.asn; } 
-                else throw new Error("API Limit");
+                if(ipData.success) { isp = ipData.connection.isp; myASN = ipData.connection.asn; } else throw new Error("Limit");
             } catch (e) {
                 try {
                     const backup = await fetch('https://ipapi.co/json/').then(r => r.json());
-                    isp = backup.org || "Lookup Blocked"; myASN = backup.asn || "0";
-                } catch (err) { metaError = "APIs blocked by firewall limits."; isp = "Shielded"; }
+                    if(backup.error) throw new Error("Limit");
+                    isp = backup.org; myASN = backup.asn.replace('AS', '');
+                } catch (err) {
+                    try {
+                        const b2 = await fetch('https://ip.seeip.org/geoip').then(r => r.json());
+                        isp = b2.organization || "Lookup Blocked"; myASN = b2.asn || "0";
+                    } catch (err2) { metaError = "Telemetry APIs rate-limited. Try again in 60s."; isp = "Shielded"; }
+                }
             }
 
             try {
