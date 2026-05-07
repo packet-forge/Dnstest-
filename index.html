@@ -23,8 +23,8 @@
         .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 15px; }
         label { cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; font-weight: 500; }
         input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--blue); }
-        .btn-container { text-align: center; margin-top: 30px; }
-        button { background-color: #21262d; color: var(--blue); border: 1px solid var(--border); padding: 14px 32px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; width: 100%; max-width: 300px; text-transform: uppercase; letter-spacing: 1px;}
+        .btn-container { text-align: center; margin-top: 30px; display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; }
+        button { background-color: #21262d; color: var(--blue); border: 1px solid var(--border); padding: 14px 32px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; min-width: 200px; text-transform: uppercase; letter-spacing: 1px;}
         button:hover { background-color: #30363d; border-color: var(--gray); }
     </style>
 </head>
@@ -67,7 +67,7 @@
         <div id="crypt-data" class="data-readout">Waiting for audit...</div>
     </div>
 
-    <div class="module">
+    <div class="module" id="mod-meta">
         <h2>5. Pipeline Metadata</h2>
         <div id="meta-status" class="status loading">IDLE</div>
         <div id="meta-data" class="data-readout">Network details...</div>
@@ -75,6 +75,7 @@
 
     <div class="btn-container">
         <button onclick="runAllTests()">Retry Test</button>
+        <button onclick="exportReport()" style="background-color: #1f6feb; color: #fff; border-color: #388bfd;">Export Logs</button>
     </div>
 
     <script>
@@ -218,6 +219,39 @@
                     setUI('crypt', isEncrypted ? 'PASS' : 'FAIL', isEncrypted ? 'pass' : 'fail', cryptLog);
                 }
             }
+        }
+
+        function exportReport() {
+            let report = "DNS TEST | SENTINEL DIAGNOSTICS REPORT\n" + "=".repeat(38) + "\n\n";
+            const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
+            report += `Timestamp : ${timestamp}\nTarget    : ${window.location.hostname}\n\n`;
+
+            ['dnssec', 'sinkhole', 'routing', 'crypt', 'meta'].forEach(id => {
+                const mod = document.getElementById(`mod-${id}`);
+                const statusBtn = document.getElementById(`${id}-status`);
+                const dataBox = document.getElementById(`${id}-data`);
+                
+                // Only copy modules that are currently visible/active
+                if (mod && mod.style.display !== 'none' && statusBtn && dataBox) {
+                    const title = mod.querySelector('h2').innerText;
+                    report += `${title} [${statusBtn.innerText}]\n`;
+                    report += "-".repeat(title.length + statusBtn.innerText.length + 3) + "\n";
+                    report += dataBox.innerText.trim() + "\n\n";
+                }
+            });
+
+            navigator.clipboard.writeText(report).then(() => {
+                const btn = document.querySelector('button[onclick="exportReport()"]');
+                const originalText = btn.innerText;
+                btn.innerText = "COPIED TO CLIPBOARD!";
+                btn.style.backgroundColor = "#238636";
+                btn.style.borderColor = "#2ea043";
+                setTimeout(() => {
+                    btn.innerText = originalText;
+                    btn.style.backgroundColor = "#1f6feb";
+                    btn.style.borderColor = "#388bfd";
+                }, 2000);
+            }).catch(err => alert("Failed to copy logs."));
         }
 
         refreshView(); runAllTests();
