@@ -3,58 +3,99 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sentinel Node | Redundant Diagnostics</title>
+    <title>Sentinel Node | Redundant Pipeline Audit</title>
     <style>
         :root {
             --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #c9d1d9;
             --blue: #58a6ff; --green: #238636; --red: #da3633; --yellow: #d29922; --gray: #8b949e;
         }
-        body { background-color: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; padding: 20px; max-width: 650px; margin: 0 auto; }
-        h1 { color: var(--blue); border-bottom: 1px solid var(--border); padding-bottom: 10px; font-size: 1.5rem; text-transform: uppercase; }
-        .module { background-color: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 18px; margin-bottom: 15px; }
-        h2 { margin-top: 0; font-size: 1.1rem; color: var(--blue); letter-spacing: 1px; }
-        p { font-size: 0.85rem; margin: 5px 0 10px 0; color: var(--gray); }
-        .status { font-family: monospace; font-weight: bold; padding: 5px 12px; border-radius: 4px; display: inline-block; font-size: 0.95rem; }
+        body { 
+            background-color: var(--bg); color: var(--text); 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            padding: 20px; max-width: 700px; margin: 0 auto; line-height: 1.5;
+        }
+        h1 { color: var(--blue); border-bottom: 1px solid var(--border); padding-bottom: 10px; font-size: 1.4rem; text-transform: uppercase; letter-spacing: 1px;}
+        .module { background-color: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 18px; margin-bottom: 15px; transition: transform 0.2s ease; }
+        .config-panel { border-color: var(--blue); background-color: #0d1117; margin-bottom: 25px; }
+        h2 { margin-top: 0; font-size: 1rem; color: var(--blue); text-transform: uppercase; }
+        p { font-size: 0.8rem; margin: 5px 0 12px 0; color: var(--gray); }
+        .status { font-family: monospace; font-weight: bold; padding: 4px 10px; border-radius: 4px; display: inline-block; font-size: 0.85rem; }
         .loading { background-color: var(--yellow); color: #000; }
         .pass { background-color: var(--green); color: #fff; }
         .fail { background-color: var(--red); color: #fff; }
         .offline { background-color: #30363d; color: var(--text); }
-        .data-readout { background-color: #010409; padding: 12px; border-radius: 6px; color: #a5d6ff; margin-top: 12px; font-size: 0.85rem; font-family: 'Courier New', monospace; border: 1px solid #222; white-space: pre-line; }
+        .ignored { background-color: transparent; border: 1px solid var(--gray); color: var(--gray); }
+        
+        .data-readout { 
+            background-color: #010409; padding: 12px; border-radius: 6px; color: #a5d6ff; 
+            margin-top: 12px; font-size: 0.8rem; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; 
+            border: 1px solid #222; white-space: pre-wrap; 
+        }
+
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        label { cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; font-weight: 500; }
+        input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--blue); cursor: pointer; }
+
         .btn-container { text-align: center; margin-top: 30px; }
-        button { background-color: #21262d; color: var(--blue); border: 1px solid var(--border); padding: 12px 28px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        button { 
+            background-color: #21262d; color: var(--blue); border: 1px solid var(--border); 
+            padding: 14px 32px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.9rem;
+            transition: 0.2s; width: 100%; max-width: 300px;
+        }
+        button:hover { background-color: #30363d; border-color: var(--gray); }
     </style>
 </head>
 <body>
 
-    <h1>Sentinel Diagnostics <span style="font-size: 0.7rem; vertical-align: middle; opacity: 0.6;">v1.4</span></h1>
+    <h1>Sentinel Diagnostics <span style="font-size: 0.6rem; opacity: 0.5;">v1.5</span></h1>
 
-    <div class="module">
+    <div class="module config-panel">
+        <h2>Target Pipeline Rules</h2>
+        <p>Define what the network "should" be doing. Unchecking a rule hides its test.</p>
+        <div class="controls">
+            <label><input type="checkbox" id="expect-dnssec" checked onchange="refreshView()"> DNSSEC (Unbound)</label>
+            <label><input type="checkbox" id="expect-sinkhole" checked onchange="refreshView()"> Sinkhole (AdGuard)</label>
+            <label><input type="checkbox" id="expect-crypt" checked onchange="refreshView()"> Encryption (DNSCrypt)</label>
+            <label><input type="checkbox" id="strict-mode"> Strict Validation</label>
+        </div>
+    </div>
+
+    <div class="module" id="mod-dnssec">
         <h2>1. DNSSEC Validation</h2>
-        <p>Testing multiple domains with broken signatures.</p>
-        <div id="dnssec-status" class="status loading">PENDING...</div>
+        <div id="dnssec-status" class="status loading">IDLE</div>
         <div id="dnssec-data" class="data-readout">Waiting for audit...</div>
     </div>
 
-    <div class="module">
+    <div class="module" id="mod-sinkhole">
         <h2>2. AdGuard Sinkhole</h2>
-        <p>Probing high-traffic tracking endpoints.</p>
-        <div id="sinkhole-status" class="status loading">PENDING...</div>
+        <div id="sinkhole-status" class="status loading">IDLE</div>
         <div id="sinkhole-data" class="data-readout">Waiting for audit...</div>
     </div>
 
+    <div class="module" id="mod-crypt">
+        <h2>3. DNSCrypt Tunnel</h2>
+        <div id="crypt-status" class="status loading">IDLE</div>
+        <div id="crypt-data" class="data-readout">Waiting for audit...</div>
+    </div>
+
     <div class="module">
-        <h2>3. Pipeline Encryption</h2>
-        <p>Auditing DNSCrypt-proxy tunnel integrity.</p>
-        <div id="dnscrypt-status" class="status loading">PENDING...</div>
-        <div id="dnscrypt-data" class="data-readout">Checking resolver exit node...</div>
+        <h2>4. Pipeline Metadata</h2>
+        <div id="meta-status" class="status loading">IDLE</div>
+        <div id="meta-data" class="data-readout">Network details...</div>
     </div>
 
     <div class="btn-container">
-        <button onclick="runAllTests()">RE-SCAN REDUNDANT PIPELINE</button>
+        <button onclick="runAllTests()">RUN MULTI-POINT AUDIT</button>
     </div>
 
     <script>
-        const networkMap = { "45873": "Reliance Jio", "9829": "BSNL", "131259": "Kerala Vision", "133201": "Asianet", "13335": "Cloudflare", "19281": "Quad9", "15169": "Google", "36692": "OpenDNS" };
+        const networkMap = { "45873": "Reliance Jio", "131259": "Kerala Vision", "133201": "Asianet", "13335": "Cloudflare", "19281": "Quad9", "15169": "Google", "34939": "NextDNS", "134149": "AdGuard DNS" };
+
+        function refreshView() {
+            document.getElementById('mod-dnssec').style.display = document.getElementById('expect-dnssec').checked ? 'block' : 'none';
+            document.getElementById('mod-sinkhole').style.display = document.getElementById('expect-sinkhole').checked ? 'block' : 'none';
+            document.getElementById('mod-crypt').style.display = document.getElementById('expect-crypt').checked ? 'block' : 'none';
+        }
 
         const setUI = (id, text, className, dataText) => {
             const status = document.getElementById(`${id}-status`);
@@ -64,84 +105,82 @@
         };
 
         async function checkConnectivity() {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 6000);
             try {
-                // Dual-target check for redundancy
-                const p1 = fetch('https://1.1.1.1/generate_204', { mode: 'no-cors' });
-                const p2 = fetch('https://www.google.com/generate_204', { mode: 'no-cors' });
-                const results = await Promise.allSettled([p1, p2]);
-                return results.some(r => r.status === 'fulfilled');
+                const probes = [
+                    fetch('https://connectivitycheck.gstatic.com/generate_204', { mode: 'no-cors', signal: controller.signal }),
+                    fetch('https://cp.cloudflare.com/generate_204', { mode: 'no-cors', signal: controller.signal })
+                ];
+                const res = await Promise.any(probes);
+                clearTimeout(timeout);
+                return true;
             } catch (e) { return false; }
         }
 
         async function runAllTests() {
-            setUI('dnssec', 'AUDITING...', 'loading', "Running multi-point check...");
-            setUI('sinkhole', 'PROBING...', 'loading', "Checking tracker blackholes...");
-            setUI('dnscrypt', 'VERIFYING...', 'loading', "Scanning exit nodes...");
-
             const isOnline = await checkConnectivity();
             if (!isOnline) {
-                const msg = "OFFLINE: No route to internet. Tests aborted to prevent false positives.";
-                setUI('dnssec', 'OFFLINE', 'offline', msg);
-                setUI('sinkhole', 'OFFLINE', 'offline', msg);
-                setUI('dnscrypt', 'OFFLINE', 'offline', msg);
+                const msg = "OFFLINE: Gateway unreachable. Audit aborted.";
+                ['dnssec', 'sinkhole', 'crypt', 'meta'].forEach(id => setUI(id, 'OFFLINE', 'offline', msg));
                 return;
             }
 
             // --- 1. REDUNDANT DNSSEC ---
-            const dnssecDomains = ['dnssec-failed.org', 'dns-servfail.net'];
-            let dnssecFails = 0;
-            
-            const dnssecPromises = dnssecDomains.map(domain => {
-                return new Promise((resolve) => {
-                    const img = new Image();
-                    img.onload = () => resolve(false); // LEAK!
-                    img.onerror = () => resolve(true); // BLOCKED!
-                    img.src = `http://${domain}/favicon.ico?${Date.now()}`;
-                    setTimeout(() => resolve(true), 3000); // Timeout = Blocked
-                });
-            });
-
-            const dnssecResults = await Promise.all(dnssecPromises);
-            const dnssecAllPassed = dnssecResults.every(r => r === true);
-            if (dnssecAllPassed) setUI('dnssec', 'PASS', 'pass', "Redundancy: 2/2 Blocked.\nUnbound is strictly validating signatures.");
-            else setUI('dnssec', 'FAIL', 'fail', "Leak detected! One or more insecure domains resolved.");
+            if (document.getElementById('expect-dnssec').checked) {
+                setUI('dnssec', 'PROBING...', 'loading', "Checking redundant endpoints...");
+                const dnssecDomains = ['dnssec-failed.org', 'dns-servfail.net', 'badisig.go6lab.si'];
+                const results = await Promise.all(dnssecDomains.map(domain => {
+                    return new Promise(res => {
+                        const img = new Image();
+                        img.onload = () => res(false); // LEAK
+                        img.onerror = () => res(true); // BLOCKED
+                        img.src = `http://${domain}/favicon.ico?${Date.now()}`;
+                        setTimeout(() => res(true), 4000); 
+                    });
+                }));
+                const passed = document.getElementById('strict-mode').checked ? results.every(r => r) : results.some(r => r);
+                const count = results.filter(r => r).length;
+                setUI('dnssec', passed ? 'PASS' : 'FAIL', passed ? 'pass' : 'fail', `Validation: ${count}/${results.length} targets correctly blocked.`);
+            }
 
             // --- 2. REDUNDANT SINKHOLE ---
-            const trackers = ['google-analytics.com/analytics.js', 'doubleclick.net/favicon.ico', 'connect.facebook.net/en_US/fbevents.js'];
-            let sinkholeLeaks = 0;
+            if (document.getElementById('expect-sinkhole').checked) {
+                setUI('sinkhole', 'PROBING...', 'loading', "Testing tracker blackholes...");
+                const trackers = ['google-analytics.com/analytics.js', 'doubleclick.net/favicon.ico', 'connect.facebook.net/en_US/fbevents.js'];
+                const results = await Promise.all(trackers.map(url => {
+                    return fetch(`https://www.${url}`, { mode: 'no-cors' }).then(() => false).catch(() => true);
+                }));
+                const passed = document.getElementById('strict-mode').checked ? results.every(r => r) : results.some(r => r);
+                const count = results.filter(r => r).length;
+                setUI('sinkhole', passed ? 'PASS' : 'fail', passed ? 'pass' : 'fail', `Filtering: ${count}/${results.length} trackers blackholed.`);
+            }
 
-            const trackerPromises = trackers.map(url => {
-                return fetch(`https://www.${url}`, { mode: 'no-cors' })
-                    .then(() => true) // Resolved (Leak)
-                    .catch(() => false); // Blocked (Success)
-            });
-
-            const sinkResults = await Promise.all(trackerPromises);
-            const leakedCount = sinkResults.filter(r => r === true).length;
-            if (leakedCount === 0) setUI('sinkhole', 'PASS', 'pass', "Redundancy: 3/3 Sinkholed.\nAdGuard Home is filtering all probes.");
-            else setUI('sinkhole', 'FAIL', 'fail', `Leak detected! ${leakedCount}/3 trackers resolved.`);
-
-            // --- 3. DNSCRYPT AUDIT ---
+            // --- 3 & 4. METADATA & CRYPT ---
+            setUI('crypt', 'AUDITING...', 'loading', "Comparing ISP vs Resolver...");
+            setUI('meta', 'QUERYING...', 'loading', "Fetching IP metadata...");
             try {
-                const [ipRes, dnsRes] = await Promise.all([
+                const [ipData, dnsData] = await Promise.all([
                     fetch('https://ipwho.is/').then(r => r.json()),
                     fetch('https://edns.ip-api.com/json').then(r => r.json())
                 ]);
-                
-                const isp = ipRes.connection.isp || "Unknown ISP";
-                const resolverASN = dnsRes.dns.asn;
-                const resolverName = networkMap[resolverASN] || dnsRes.dns.geo || dnsRes.dns.ip;
 
-                // Pass if the resolver ASN is known and NOT the ISP's ASN
-                const isEncrypted = (resolverASN != ipRes.connection.asn);
-                
-                if (isEncrypted) setUI('dnscrypt', 'PASS', 'pass', `Tunnel Verified.\nExit Node: ${resolverName}\nISP: ${isp}`);
-                else setUI('dnscrypt', 'FAIL', 'fail', `Tunnel Leak!\nYour ISP (${isp}) is resolving DNS.`);
+                const isp = ipData.connection.isp || "Unknown ISP";
+                const resolverASN = dnsData.dns.asn;
+                const resolverName = networkMap[resolverASN] || dnsData.dns.geo || dnsData.dns.ip;
+                const encrypted = (resolverASN != ipData.connection.asn);
+
+                if (document.getElementById('expect-crypt').checked) {
+                    setUI('crypt', encrypted ? 'PASS' : 'FAIL', encrypted ? 'pass' : 'fail', encrypted ? `Secure Tunnel: ${resolverName}` : "Leaking! DNS is hitting ISP directly.");
+                }
+                setUI('meta', 'CONNECTED', 'pass', `ISP: ${isp}\nResolver: ${resolverName}\nNode: ${ipData.city || "Unknown"}`);
             } catch (e) {
-                setUI('dnscrypt', 'ERROR', 'fail', 'Audit failed. Encrypted resolver not responding.');
+                setUI('crypt', 'ERROR', 'fail', "Resolver audit failed.");
+                setUI('meta', 'ERROR', 'fail', "Metadata fetch failed.");
             }
         }
 
+        refreshView();
         runAllTests();
     </script>
 </body>
